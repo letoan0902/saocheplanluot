@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+  <title>Copy theo từng dòng</title>
+  <style>
+    :root{
+      --bg:#0f172a;          /* slate-900 */
+      --card:#111827;        /* gray-900 */
+      --accent:#22c55e;      /* green-500 */
+      --accent-2:#3b82f6;    /* blue-500 */
+      --text:#e5e7eb;        /* gray-200 */
+      --muted:#9ca3af;       /* gray-400 */
+      --danger:#ef4444;      /* red-500 */
+      --shadow:0 10px 25px rgba(0,0,0,.25);
+      --radius:16px;
+    }
+    *{box-sizing:border-box}
+    html,body{
+      margin:0; padding:0;
+      background:linear-gradient(180deg,#0b1224,#0f172a);
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+      color:var(--text);
+    }
+    .wrap{
+      max-width:720px;
+      margin:0 auto;
+      padding:16px clamp(14px,3.2vw,24px) 28px;
+    }
+    .title{
+      font-size:clamp(20px,4.5vw,28px);
+      font-weight:800; letter-spacing:.2px;
+      margin:10px 0 14px;
+      text-align:center;
+    }
+    .card{
+      background:linear-gradient(180deg,#0f172a,#0b1020);
+      border:1px solid rgba(255,255,255,.06);
+      border-radius:var(--radius);
+      box-shadow:var(--shadow);
+      padding:14px;
+    }
+    textarea{
+      width:100%; min-height:38vh; resize:vertical;
+      background:#0b1224; color:var(--text);
+      border:1px solid rgba(255,255,255,.08);
+      border-radius:14px; padding:12px 14px;
+      font-size:16px; line-height:1.45;
+      outline:none;
+    }
+    .row{display:flex; gap:10px; margin-top:12px; flex-wrap:wrap}
+    .btn{
+      flex:1 1 auto;
+      display:inline-flex; align-items:center; justify-content:center;
+      gap:8px;
+      padding:14px 16px;
+      background:var(--accent);
+      color:#07130b; font-weight:800; font-size:16px;
+      border:none; border-radius:14px;
+      box-shadow:0 6px 18px rgba(34,197,94,.35);
+      outline:none; cursor:pointer;
+      transition:transform .08s ease, opacity .2s ease;
+      -webkit-tap-highlight-color: transparent;
+      user-select:none;
+    }
+    .btn:active{transform:scale(.98)}
+    .btn.secondary{
+      background:var(--accent-2); color:#061025;
+      box-shadow:0 6px 18px rgba(59,130,246,.32);
+    }
+    .btn.muted{
+      background:#1f2937; color:var(--muted);
+      box-shadow:none;
+    }
+    .hint{
+      color:var(--muted); font-size:13px; margin-top:10px;
+    }
+    /* Play view */
+    .big-btn{
+      width:100%;
+      padding:18px 16px;
+      background:#0b1224;
+      border:1px dashed rgba(148,163,184,.4);
+      border-radius:16px;
+      min-height:70px;
+      font-size:clamp(16px,4.6vw,20px);
+      color:#e2e8f0;
+      text-align:center;
+      word-break:break-word;
+      line-height:1.35;
+      box-shadow: inset 0 0 0 9999px rgba(0,0,0,.04);
+      cursor:pointer;
+    }
+    .progress{
+      display:flex; justify-content:space-between; align-items:center;
+      margin-top:12px; color:var(--muted); font-size:14px;
+    }
+    .toast{
+      position:fixed; left:50%; bottom:18px; transform:translateX(-50%) translateY(20px);
+      background:rgba(15,23,42,.96);
+      border:1px solid rgba(255,255,255,.08);
+      color:#d1fae5;
+      padding:10px 14px; border-radius:12px; font-weight:700;
+      box-shadow:var(--shadow);
+      opacity:0; pointer-events:none;
+      transition: all .25s ease;
+      z-index:99;
+      white-space:nowrap;
+    }
+    .toast.show{opacity:1; transform:translateX(-50%) translateY(0)}
+    .hidden{display:none}
+    .err{color:var(--danger); font-size:14px; margin-top:8px}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="title">Công cụ copy theo từng dòng</div>
+
+    <!-- Nhập liệu -->
+    <section id="inputView" class="card">
+      <textarea id="listInput" placeholder="Dán danh sách tại đây...
+moi_dong_1_gia_tri
+moi_dong_1_gia_tri
+..."></textarea>
+      <div class="row">
+        <button id="startBtn" class="btn">Bắt đầu</button>
+        <button id="clearBtn" class="btn muted" type="button">Xóa</button>
+      </div>
+      <div class="hint">Mẹo: Mỗi dòng 1 email/số. Dòng trống sẽ tự bỏ qua.</div>
+      <div id="errBox" class="err hidden"></div>
+    </section>
+
+    <!-- Chế độ phát từng dòng -->
+    <section id="playView" class="card hidden" aria-live="polite">
+      <button id="copyBtn" class="big-btn" title="Nhấn để sao chép"></button>
+      <div class="progress">
+        <span id="indexInfo">0 / 0</span>
+        <div style="display:flex; gap:8px">
+          <button id="nextBtn" class="btn secondary" type="button">Tiếp</button>
+          <button id="restartBtn" class="btn muted" type="button">Nhập lại</button>
+        </div>
+      </div>
+      <div class="hint">Nhấn vào ô lớn để <b>sao chép</b>. Nhấn <b>Tiếp</b> để sang dòng kế tiếp.</div>
+    </section>
+  </div>
+
+  <div id="toast" class="toast">Đã sao chép</div>
+
+  <script>
+    const inputView   = document.getElementById('inputView');
+    const playView    = document.getElementById('playView');
+    const listInput   = document.getElementById('listInput');
+    const startBtn    = document.getElementById('startBtn');
+    const clearBtn    = document.getElementById('clearBtn');
+    const errBox      = document.getElementById('errBox');
+
+    const copyBtn     = document.getElementById('copyBtn');
+    const nextBtn     = document.getElementById('nextBtn');
+    const restartBtn  = document.getElementById('restartBtn');
+    const indexInfo   = document.getElementById('indexInfo');
+    const toast       = document.getElementById('toast');
+
+    let items = [];
+    let idx = 0;
+
+    function showToast(msg='Đã sao chép'){
+      toast.textContent = msg;
+      toast.classList.add('show');
+      setTimeout(()=>toast.classList.remove('show'), 1200);
+    }
+
+    function parseLines(raw){
+      return raw
+        .split(/\r?\n/)
+        .map(s=>s.trim())
+        .filter(Boolean);
+    }
+
+    function updateUI(){
+      const total = items.length;
+      if (idx >= total){
+        copyBtn.textContent = 'Đã hết danh sách';
+        copyBtn.disabled = true;
+        nextBtn.disabled = true;
+        indexInfo.textContent = `${total} / ${total}`;
+        return;
+      }
+      copyBtn.textContent = items[idx];
+      copyBtn.disabled = false;
+      nextBtn.disabled = (idx+1 >= total);
+      indexInfo.textContent = `${idx+1} / ${total}`;
+    }
+
+    async function copyText(text){
+      try{
+        if (navigator.clipboard && window.isSecureContext){
+          await navigator.clipboard.writeText(text);
+        }else{
+          // Fallback
+          const ta = document.createElement('textarea');
+          ta.value = text;
+          ta.style.position='fixed';
+          ta.style.left='-9999px';
+          document.body.appendChild(ta);
+          ta.focus(); ta.select();
+          document.execCommand('copy');
+          ta.remove();
+        }
+        showToast('Đã sao chép');
+      }catch(e){
+        showToast('Không thể sao chép');
+        console.error(e);
+      }
+    }
+
+    startBtn.addEventListener('click', ()=>{
+      errBox.classList.add('hidden');
+      const data = parseLines(listInput.value);
+      if (data.length === 0){
+        errBox.textContent = 'Danh sách trống. Hãy dán ít nhất 1 dòng.';
+        errBox.classList.remove('hidden');
+        return;
+      }
+      items = data;
+      idx = 0;
+      inputView.classList.add('hidden');
+      playView.classList.remove('hidden');
+      updateUI();
+      // Tự cuộn lên phần play trên mobile
+      playView.scrollIntoView({behavior:'smooth', block:'start'});
+    });
+
+    clearBtn.addEventListener('click', ()=>{
+      listInput.value = '';
+      listInput.focus();
+    });
+
+    copyBtn.addEventListener('click', ()=>{
+      if (idx < items.length){
+        copyText(items[idx]);
+      }
+    });
+
+    nextBtn.addEventListener('click', ()=>{
+      if (idx < items.length - 1){
+        idx++;
+        updateUI();
+      }else{
+        // Chạm tới cuối
+        idx = items.length;
+        updateUI();
+      }
+    });
+
+    restartBtn.addEventListener('click', ()=>{
+      playView.classList.add('hidden');
+      inputView.classList.remove('hidden');
+      listInput.focus();
+    });
+
+    // Cho phép nhấn Enter+Ctrl để bắt đầu nhanh khi đang ở ô nhập
+    listInput.addEventListener('keydown', (e)=>{
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter'){
+        startBtn.click();
+      }
+    });
+  </script>
+</body>
+</html>
