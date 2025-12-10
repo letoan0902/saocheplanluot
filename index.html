@@ -73,6 +73,44 @@
       background:#1f2937; color:var(--muted);
       box-shadow:none;
     }
+    .btn.small{
+      flex: 1 1 0 !important;
+      min-width: 0;
+    }
+    .btn.large{
+      flex: 2 1 0 !important;
+      min-width: 0;
+    }
+    @media (max-width: 480px){
+      .progress{
+        flex-direction:column;
+        align-items:stretch;
+      }
+      .progress > span{
+        text-align:center;
+        margin-bottom:8px;
+      }
+      .btn-group{
+        width:100%;
+        justify-content:stretch;
+      }
+      .btn{
+        padding: 12px 8px;
+        font-size: 13px;
+      }
+      .btn.small{
+        flex: 1 1 0 !important;
+        min-width: 0;
+        padding: 12px 6px;
+        font-size: 12px;
+      }
+      .btn.large{
+        flex: 2 1 0 !important;
+        min-width: 0;
+        padding: 12px 8px;
+        font-size: 13px;
+      }
+    }
     .hint{
       color:var(--muted); font-size:13px; margin-top:10px;
     }
@@ -95,6 +133,13 @@
     .progress{
       display:flex; justify-content:space-between; align-items:center;
       margin-top:12px; color:var(--muted); font-size:14px;
+      gap:8px;
+      flex-wrap:wrap;
+    }
+    .btn-group{
+      display:flex; gap:8px; flex:1 1 auto;
+      min-width:0;
+      justify-content:flex-end;
     }
     .toast{
       position:fixed; left:50%; bottom:18px; transform:translateX(-50%) translateY(20px);
@@ -136,12 +181,13 @@ moi_dong_1_gia_tri
       <button id="copyBtn" class="big-btn" title="Nhấn để sao chép"></button>
       <div class="progress">
         <span id="indexInfo">0 / 0</span>
-        <div style="display:flex; gap:8px">
-          <button id="nextBtn" class="btn secondary" type="button">Tiếp</button>
-          <button id="restartBtn" class="btn muted" type="button">Nhập lại</button>
+        <div class="btn-group">
+          <button id="prevBtn" class="btn secondary small" type="button">Quay lại</button>
+          <button id="nextBtn" class="btn secondary large" type="button">Tiếp</button>
+          <button id="restartBtn" class="btn muted small" type="button">Nhập lại</button>
         </div>
       </div>
-      <div class="hint">Nhấn vào ô lớn để <b>sao chép</b>. Nhấn <b>Tiếp</b> để sang dòng kế tiếp.</div>
+      <div class="hint">Nhấn vào ô lớn để <b>sao chép</b>. Nhấn <b>Quay lại</b> hoặc <b>Tiếp</b> để điều hướng.</div>
     </section>
   </div>
 
@@ -156,6 +202,7 @@ moi_dong_1_gia_tri
     const errBox      = document.getElementById('errBox');
 
     const copyBtn     = document.getElementById('copyBtn');
+    const prevBtn     = document.getElementById('prevBtn');
     const nextBtn     = document.getElementById('nextBtn');
     const restartBtn  = document.getElementById('restartBtn');
     const indexInfo   = document.getElementById('indexInfo');
@@ -163,6 +210,52 @@ moi_dong_1_gia_tri
 
     let items = [];
     let idx = 0;
+
+    const STORAGE_KEY = 'copyLineByLine_state';
+
+    function saveState(){
+      try{
+        const state = {
+          items: items,
+          idx: idx,
+          inputText: listInput.value,
+          isPlaying: !playView.classList.contains('hidden')
+        };
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      }catch(e){
+        console.warn('Không thể lưu trạng thái:', e);
+      }
+    }
+
+    function loadState(){
+      try{
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (!saved) return false;
+        const state = JSON.parse(saved);
+        if (state.items && state.items.length > 0){
+          items = state.items;
+          idx = state.idx || 0;
+          if (state.inputText) listInput.value = state.inputText;
+          if (state.isPlaying){
+            inputView.classList.add('hidden');
+            playView.classList.remove('hidden');
+            updateUI();
+          }
+          return true;
+        }
+      }catch(e){
+        console.warn('Không thể khôi phục trạng thái:', e);
+      }
+      return false;
+    }
+
+    function clearState(){
+      try{
+        localStorage.removeItem(STORAGE_KEY);
+      }catch(e){
+        console.warn('Không thể xóa trạng thái:', e);
+      }
+    }
 
     function showToast(msg='Đã sao chép'){
       toast.textContent = msg;
@@ -183,13 +276,17 @@ moi_dong_1_gia_tri
         copyBtn.textContent = 'Đã hết danh sách';
         copyBtn.disabled = true;
         nextBtn.disabled = true;
+        prevBtn.disabled = (idx <= 0);
         indexInfo.textContent = `${total} / ${total}`;
+        saveState(); // Lưu trạng thái khi hết danh sách
         return;
       }
       copyBtn.textContent = items[idx];
       copyBtn.disabled = false;
       nextBtn.disabled = (idx+1 >= total);
+      prevBtn.disabled = (idx <= 0);
       indexInfo.textContent = `${idx+1} / ${total}`;
+      saveState(); // Lưu trạng thái mỗi khi cập nhật UI
     }
 
     async function copyText(text){
@@ -227,6 +324,7 @@ moi_dong_1_gia_tri
       inputView.classList.add('hidden');
       playView.classList.remove('hidden');
       updateUI();
+      saveState(); // Lưu trạng thái khi bắt đầu
       // Tự cuộn lên phần play trên mobile
       playView.scrollIntoView({behavior:'smooth', block:'start'});
     });
@@ -234,11 +332,19 @@ moi_dong_1_gia_tri
     clearBtn.addEventListener('click', ()=>{
       listInput.value = '';
       listInput.focus();
+      clearState(); // Xóa trạng thái khi clear
     });
 
     copyBtn.addEventListener('click', ()=>{
       if (idx < items.length){
         copyText(items[idx]);
+      }
+    });
+
+    prevBtn.addEventListener('click', ()=>{
+      if (idx > 0){
+        idx--;
+        updateUI();
       }
     });
 
@@ -257,6 +363,7 @@ moi_dong_1_gia_tri
       playView.classList.add('hidden');
       inputView.classList.remove('hidden');
       listInput.focus();
+      clearState(); // Xóa trạng thái khi restart
     });
 
     // Cho phép nhấn Enter+Ctrl để bắt đầu nhanh khi đang ở ô nhập
@@ -265,6 +372,30 @@ moi_dong_1_gia_tri
         startBtn.click();
       }
     });
+
+    // Lưu trạng thái khi trang bị đóng hoặc chuyển tab (cho mobile)
+    window.addEventListener('beforeunload', ()=>{
+      saveState();
+    });
+
+    // Lưu trạng thái khi trang bị ẩn (visibility change - cho mobile)
+    document.addEventListener('visibilitychange', ()=>{
+      if (document.hidden){
+        saveState();
+      }
+    });
+
+    // Khôi phục trạng thái khi trang load
+    (function restoreOnLoad(){
+      if (document.readyState === 'loading'){
+        window.addEventListener('DOMContentLoaded', restoreOnLoad);
+        return;
+      }
+      const restored = loadState();
+      if (restored){
+        setTimeout(()=>showToast('Đã khôi phục tiến trình'), 300);
+      }
+    })();
   </script>
 </body>
 </html>
